@@ -1,7 +1,1 @@
-﻿# malicious_urls.txt - temporary sample list for testing
-# ضع هنا روابط/دومينات خبيثة كمثال (واستبدليها لاحقًا بملف كامل)
-http://malicious-example.com
-http://phishingsite.test
-bad-domain.com
-example-malware.com/path
-https://fake-malware-example.local
+
