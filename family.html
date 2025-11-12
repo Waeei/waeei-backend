@@ -1,0 +1,140 @@
+
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>واجهة الأسرة - منصة واعي</title>
+
+<style>
+body {font-family:'Tajawal',sans-serif;margin:0;background:#f7f7f7;color:#111;}
+header{background:#fff;border-bottom:1px solid #eee;padding:20px;text-align:center;}
+h1{margin:0;color:#0aa06e;}
+.container{max-width:900px;margin:20px auto;padding:20px;background:#fff;border-radius:12px;box-shadow:0 0 8px #ddd;}
+input,select,button{padding:10px;border-radius:8px;border:1px solid #ccc;font:inherit;width:100%;box-sizing:border-box;}
+button{background:#0aa06e;color:#fff;border:none;cursor:pointer;}
+button:hover{opacity:0.9;}
+table{width:100%;border-collapse:collapse;margin-top:10px;}
+th,td{border:1px solid #eee;padding:8px;text-align:center;}
+th{background:#f4f4f4;}
+.safe{color:#1f8b4c;}
+.mal{color:#c73535;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>👨‍👩‍👧 واجهة الأسرة - منصة واعي</h1>
+  <p>ساعد أسرتك على فحص الروابط المشبوهة ومتابعة النتائج مع الحفاظ على الخصوصية</p>
+</header>
+
+<div class="container">
+
+  <h2>إنشاء أو فتح سجل الأسرة</h2>
+  <input id="familyName" placeholder="اسم الأسرة (مثال: عائلة الحربي)">
+  <button onclick="saveFamily()">ابدأ</button>
+  <p id="welcome"></p>
+  <hr>
+
+  <h2>إضافة فحص جديد</h2>
+  <input id="memberName" placeholder="اسم الفرد (أب / أم / ابن)">
+  <input id="linkInput" placeholder="ألصق الرابط هنا">
+  <button onclick="checkLink()">تحقق الآن</button>
+  <div id="loading" style="display:none;color:#0aa06e;">جاري الفحص...</div>
+
+  <div id="resultBox" style="display:none;margin-top:10px;padding:10px;border:1px solid #eee;border-radius:10px;">
+    <h3>نتيجة الفحص:</h3>
+    <p id="verdict"></p>
+    <p id="reason" style="color:#666;"></p>
+  </div>
+  <hr>
+
+  <h2>📋 سجل الأسرة</h2>
+  <table>
+    <thead>
+      <tr><th>اسم الفرد</th><th>الرابط</th><th>النتيجة</th><th>الوقت</th></tr>
+    </thead>
+    <tbody id="familyTable"></tbody>
+  </table>
+
+</div>
+
+<script>
+const BACKEND_BASE_URL = "http://127.0.0.1:8000";
+const USE_MOCK = true; 
+
+let familyName = localStorage.getItem("familyName") || "";
+let familyData = JSON.parse(localStorage.getItem("familyData") || "[]");
+
+function saveFamily(){
+  const name = document.getElementById("familyName").value.trim();
+  if(!name){ alert("أدخل اسم الأسرة أولاً"); return; }
+  familyName = name;
+  localStorage.setItem("familyName", name);
+  document.getElementById("welcome").textContent = "مرحبًا " + familyName + "!";
+  renderTable();
+}
+
+if(familyName){ document.getElementById("welcome").textContent = "مرحبًا " + familyName + "!"; }
+
+async function checkLink(){
+  const member = document.getElementById("memberName").value.trim();
+  const url = document.getElementById("linkInput").value.trim();
+  if(!familyName) return alert("سجّل اسم الأسرة أولاً");
+  if(!member || !url) return alert("أدخل اسم الفرد والرابط");
+  document.getElementById("loading").style.display="block";
+  document.getElementById("resultBox").style.display="none";
+
+  let verdict=""; let reason="";
+  try{
+    const res = await fetch(BACKEND_BASE_URL+"/analyze-link",{
+      method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({url})
+    });
+    if(!res.ok) throw new Error();
+    const data = await res.json();
+    verdict = data.verdict || "Unknown";
+    reason  = data.reason  || "";
+  }catch(e){
+    if(USE_MOCK){
+      const bad=/login|bank|verify|free|gift|xyz|tinyurl|short/i.test(url);
+      verdict = bad?"Malicious":"Safe";
+      reason  = bad?"النظام اكتشف مؤشرات احتيالية في الرابط":"الرابط لا يظهر مؤشرات احتيال واضحة";
+    }else{
+      alert("تعذر الاتصال بالخادم"); 
+      document.getElementById("loading").style.display="none"; 
+      return;
+    }
+  }
+
+  document.getElementById("loading").style.display="none";
+  document.getElementById("resultBox").style.display="block";
+  document.getElementById("verdict").innerHTML = verdict==="Safe"
+      ? `<span class='safe'>آمن ✅</span>` : `<span class='mal'>احتيالي ⚠️</span>`;
+  document.getElementById("reason").textContent = reason;
+
+  const record={familyName,name:member,url,verdict,date:new Date().toLocaleString()};
+  familyData.push(record);
+  localStorage.setItem("familyData", JSON.stringify(familyData));
+  renderTable();
+}
+
+function renderTable(){
+  const tbody=document.getElementById("familyTable");
+  tbody.innerHTML="";
+  familyData.filter(x=>x.familyName===familyName).slice().reverse().forEach(r=>{
+    const row=`<tr>
+      <td>${r.name}</td>
+      <td style="direction:ltr">${r.url}</td>
+      <td>${r.verdict==="Safe"?"<span class='safe'>آمن ✅</span>":"<span class='mal'>احتيالي ⚠️</span>"}</td>
+      <td>${r.date}</td>
+    </tr>`;
+    tbody.innerHTML+=row;
+  });
+}
+
+renderTable();
+</script>
+
+</body>
+</html>
