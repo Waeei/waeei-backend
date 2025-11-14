@@ -49,9 +49,9 @@ def get_db():
 
 origins = [
     "http://127.0.0.1:5500",
-    "http://localhost:5173", 
+    "http://localhost:5173",
     "http://127.0.0.1:5173",
-    "http://localhost:3000", 
+    "http://localhost:3000",
     "http://127.0.0.1:3000",
 
    
@@ -66,6 +66,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 
@@ -339,3 +340,4 @@ def on_startup():
     load_malicious_set()
     Base.metadata.create_all(bind=engine)
     print("Startup complete.")
+
