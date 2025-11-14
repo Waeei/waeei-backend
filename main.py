@@ -47,18 +47,26 @@ def get_db():
     finally:
         db.close()
 
+origins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5173", 
+    "http://127.0.0.1:5173",
+    "http://localhost:3000", 
+    "http://127.0.0.1:3000",
+
+   
+    "https://waeei.github.io",
+    "https://waeei.github.io/waeei-website",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://127.0.0.1:5500",
-        "http://localhost:5173", "http://127.0.0.1:5173",
-        "http://localhost:3000", "http://127.0.0.1:3000",
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 
 GITHUB_RAW = os.getenv("MALICIOUS_LIST_URL", "").strip()
@@ -331,5 +339,3 @@ def on_startup():
     load_malicious_set()
     Base.metadata.create_all(bind=engine)
     print("Startup complete.")
-
-
