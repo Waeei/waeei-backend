@@ -65,7 +65,7 @@ def get_db():
         db.close()
 
 # ========= LOAD FRAUD / SAFE TEXTS =========
-DATA_FILE = Path(__file__).parent / "data" / "test_texts.txt"
+DATA_FILE = Path(__file__).parent / "data""test_texts.txt"
 FRAUD_LIST = []
 SAFE_LIST = []
 
@@ -91,7 +91,8 @@ MALICIOUS_URLS = [
 ]
 
 
-# ========= HELPERS =========
+# ========= HELPER FUNCTIONS =========
+
 def extract_url(text):
     urls = re.findall(r"(https?://[^\s]+)", text)
     return urls[0] if urls else None
@@ -112,26 +113,66 @@ def url_is_malicious(url):
             return True
     return False
 
+
+# ========= IMPROVED TEXT FRAUD DETECTOR =========
+
+SUSPICIOUS_KEYWORDS = [
+    "تحديث بياناتك",
+    "تم حظر",
+    "عدم كفاية الرصيد",
+    "يرجى الدفع",
+    "فاتورة",
+    "سداد",
+    "اضغط الرابط",
+    "اضغط على الرابط",
+    "تم إيقاف حسابك",
+    "تم تعليق الحساب",
+    "بياناتك غير محدثة",
+    "تفعيل البطاقة",
+    "اتصل فوراً",
+    "الرقم التالي",
+    "شحنة بانتظارك",
+    "دفع الرسوم",
+    "تم استلام شحنتك",
+    "المسير رقم",
+    "مطلوب تحديث",
+    "حسابك موقوف",
+    "تجاوز الحد الائتماني",
+    "تم تجميد الحساب"
+]
+
+def text_is_suspicious(text: str) -> bool:
+    t = text.replace(" ", "")
+    for kw in SUSPICIOUS_KEYWORDS:
+        if kw.replace(" ", "") in t:
+            return True
+    return False
+
+
 def text_is_fraud(text):
-    text = text.lower()
+    text_low = text.lower().replace(" ", "")
 
-    # قاعدة التدريب FRAUD
+    # 1) كلمات احتيالية
+    if text_is_suspicious(text):
+        return True
+
+    # 2) FRAUD_LIST التدريبية
     for f in FRAUD_LIST:
-        if f and f in text:
+        if f and f in text_low:
             return True
 
-    # الروابط داخل النص
-    if extract_url(text):
-        url = extract_url(text)
-        if url_is_malicious(url):
-            return True
+    # 3) وجود رابط احتيالي
+    url = extract_url(text)
+    if url and url_is_malicious(url):
+        return True
 
     return False
 
+
 def text_is_safe(text):
-    text = text.lower()
+    text_low = text.lower().replace(" ", "")
     for s in SAFE_LIST:
-        if s and s in text:
+        if s and s in text_low:
             return True
     return False
 
@@ -152,6 +193,7 @@ async def gpt_explain(verdict, text_or_url):
 
 
 # ========= MAIN UNIFIED ENDPOINT =========
+
 class AnalyzeBody(BaseModel):
     input: str
 
@@ -159,20 +201,14 @@ class AnalyzeBody(BaseModel):
 async def analyze(body: AnalyzeBody, db: Session = Depends(get_db)):
     text = body.input.strip()
 
-    # 1) إذا الإدخال URL كامل
+    # ========== 1) إدخال URL مباشر ==========
     if text.startswith("http://") or text.startswith("https://"):
-        if url_is_malicious(text):
-            verdict = "malicious"
-        else:
-            verdict = "safe"
-
+        verdict = "malicious" if url_is_malicious(text) else "safe"
         explanation = await gpt_explain(verdict, text)
         return {"type": "url", "verdict": verdict, "explanation": explanation}
 
-    # 2) إدخال نص — نبحث داخله عن رابط
+    # ========== 2) نص داخله URL ==========
     url = extract_url(text)
-
-    # إذا وجد رابط داخل النص
     if url:
         url_verdict = "malicious" if url_is_malicious(url) else "safe"
         text_verdict = "malicious" if text_is_fraud(text) else "safe"
@@ -181,13 +217,13 @@ async def analyze(body: AnalyzeBody, db: Session = Depends(get_db)):
         explanation = await gpt_explain(final, text)
         return {"type": "mixed", "verdict": final, "explanation": explanation}
 
-    # 3) نص بدون روابط
+    # ========== 3) نص فقط ==========
     if text_is_fraud(text):
         verdict = "malicious"
     elif text_is_safe(text):
         verdict = "safe"
     else:
-        verdict = "safe"  # النص غامض → اعتبره آمن مبدئيًا
+        verdict = "safe"   # النص غامض → اعتبره آمن
 
     explanation = await gpt_explain(verdict, text)
     return {"type": "text", "verdict": verdict, "explanation": explanation}
