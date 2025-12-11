@@ -114,7 +114,6 @@ def url_is_malicious(url):
     return False
 
 
-# ========= IMPROVED TEXT FRAUD DETECTOR =========
 
 SUSPICIOUS_KEYWORDS = [
     "تحديث بياناتك",
@@ -138,7 +137,9 @@ SUSPICIOUS_KEYWORDS = [
     "مطلوب تحديث",
     "حسابك موقوف",
     "تجاوز الحد الائتماني",
-    "تم تجميد الحساب"
+    "تم تجميد احساب",
+    "حظر بطاقه الصراف",
+    "اعطني الرقم السري",
 ]
 
 def text_is_suspicious(text: str) -> bool:
@@ -177,7 +178,6 @@ def text_is_safe(text):
     return False
 
 
-# ========= GPT EXPLANATION =========
 async def gpt_explain(verdict, text_or_url):
     try:
         resp = client.chat.completions.create(
@@ -232,3 +232,4 @@ async def analyze(body: AnalyzeBody, db: Session = Depends(get_db)):
 @app.get("/")
 def root():
     return {"ok": True}
+
